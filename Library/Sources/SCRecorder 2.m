@@ -34,7 +34,7 @@
     double _lastAppendedVideoTime;
     NSTimer *_movieOutputProgressTimer;
     CMTime _lastMovieFileOutputTime;
-    void(^_pauseCompletionHandler)(void);
+    void(^_pauseCompletionHandler)();
     SCFilter *_transformFilter;
     size_t _transformFilterBufferWidth;
     size_t _transformFilterBufferHeight;
@@ -80,8 +80,9 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
         _lastAudioBuffer = [SCSampleBufferHolder new];
         _maxRecordDuration = kCMTimeInvalid;
         _resetZoomOnChangeDevice = YES;
-        _mirrorOnFrontCamera = NO;
-        
+		_mirrorOnFrontCamera = NO;
+		_automaticallyConfiguresApplicationAudioSession = YES;
+		
         self.device = AVCaptureDevicePositionBack;
         _videoConfiguration = [SCVideoConfiguration new];
         _audioConfiguration = [SCAudioConfiguration new];
@@ -299,6 +300,7 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
     }
     
     AVCaptureSession *session = [[AVCaptureSession alloc] init];
+	session.automaticallyConfiguresApplicationAudioSession = self.automaticallyConfiguresApplicationAudioSession;
     _beginSessionConfigurationCount = 0;
     _captureSession = session;
     
@@ -450,7 +452,7 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
 }
 
 - (void)record {
-    void (^block)(void) = ^{
+    void (^block)() = ^{
         _isRecording = YES;
         if (_movieOutput != nil && _session != nil) {
             _movieOutput.maxRecordedDuration = self.maxRecordDuration;
@@ -472,10 +474,10 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
     [self pause:nil];
 }
 
-- (void)pause:(void (^_Nullable)(void))completionHandler {
+- (void)pause:(void(^)())completionHandler {
     _isRecording = NO;
     
-    void (^block)(void) = ^{
+    void (^block)() = ^{
         SCRecordSession *recordSession = _session;
         
         if (recordSession != nil) {
@@ -668,7 +670,7 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
         }
         
         [_session appendRecordSegmentUrl:outputFileURL info:[self _createSegmentInfo] error:actualError completionHandler:^(SCRecordSessionSegment *segment, NSError *error) {
-            void (^pauseCompletionHandler)(void) = _pauseCompletionHandler;
+            void (^pauseCompletionHandler)() = _pauseCompletionHandler;
             _pauseCompletionHandler = nil;
             
             SCRecordSession *recordSession = _session;
@@ -1138,6 +1140,8 @@ static char* SCRecorderPhotoOptionsContext = "PhotoOptionsContext";
             device.whiteBalanceMode = whiteBalanceMode;
         }
         
+        device.subjectAreaChangeMonitoringEnabled = !continuousMode;
+
         [device unlockForConfiguration];
         
         id<SCRecorderDelegate> delegate = self.delegate;

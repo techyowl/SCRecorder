@@ -170,31 +170,14 @@ static CGContextRef SCCreateContextFromPixelBuffer(CVPixelBufferRef pixelBuffer)
     UIView<SCVideoOverlay> *overlay = self.videoConfiguration.overlay;
     
     if (overlay != nil) {
-        CGSize videoSize = CGSizeMake(CVPixelBufferGetWidth(outputPixelBuffer), CVPixelBufferGetHeight(outputPixelBuffer));
-
-        BOOL onMainThread = NO;
-        if ([overlay respondsToSelector:@selector(requiresUpdateOnMainThreadAtVideoTime:videoSize:)]) {
-            onMainThread = [overlay requiresUpdateOnMainThreadAtVideoTime:timeSeconds videoSize:videoSize];
+        if ([overlay respondsToSelector:@selector(updateWithVideoTime:)]) {
+            [overlay updateWithVideoTime:timeSeconds];
         }
 
         CGContextRef ctx = SCCreateContextFromPixelBuffer(outputPixelBuffer);
-
-        void (^layoutBlock)() = ^{
-            overlay.frame = CGRectMake(0, 0, videoSize.width, videoSize.height);
-
-            if ([overlay respondsToSelector:@selector(updateWithVideoTime:)]) {
-                [overlay updateWithVideoTime:timeSeconds];
-            }
-
-            [overlay layoutIfNeeded];
-        };
-
-        if (onMainThread) {
-            dispatch_sync(dispatch_get_main_queue(), layoutBlock);
-        } else {
-            layoutBlock();
-        }
-
+        overlay.frame = CGRectMake(0, 0, CVPixelBufferGetWidth(outputPixelBuffer), CVPixelBufferGetHeight(outputPixelBuffer));
+        [overlay layoutIfNeeded];
+        
         [overlay.layer renderInContext:ctx];
         
         CGContextRelease(ctx);
@@ -385,7 +368,7 @@ static CGContextRef SCCreateContextFromPixelBuffer(CVPixelBufferRef pixelBuffer)
     }
 }
 
-- (void)callCompletionHandler:(void (^)())completionHandler {
+- (void)callCompletionHandler:(void (^)(void))completionHandler {
     if (!_cancelled) {
         [self _setProgress:1];
     }
@@ -655,7 +638,7 @@ static CGContextRef SCCreateContextFromPixelBuffer(CVPixelBufferRef pixelBuffer)
     }
 }
 
-- (void)exportAsynchronouslyWithCompletionHandler:(void (^)())completionHandler {
+- (void)exportAsynchronouslyWithCompletionHandler:(void (^)(void))completionHandler {
     _cancelled = NO;
     _nextAllowedVideoFrame = kCMTimeZero;
     NSError *error = nil;
